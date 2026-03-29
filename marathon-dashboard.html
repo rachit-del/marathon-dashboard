@@ -863,21 +863,23 @@ function splitCSVLine(line) {
   return result;
 }
 
-// Write to Apps Script via GET request with URL-encoded payload.
-// Google Apps Script redirects POST (302) which drops the body.
-// GET requests survive redirects and work reliably cross-origin.
+// Write to Apps Script via hidden image request.
+// This bypasses all CORS/redirect issues - the browser just fires the GET
+// and follows all redirects. We can't read the response, but the write
+// goes through. We re-sync from the sheet CSV afterward to confirm.
 async function postToAppsScript(data) {
   const payload = encodeURIComponent(JSON.stringify(data));
   const url = CONFIG.SCRIPT_URL + '?write=' + payload;
-  try {
-    const res = await fetch(url, { redirect: 'follow' });
-    const result = await res.json();
-    if (result.error) throw new Error(result.error);
-  } catch (err) {
-    console.warn('Write response not readable (may still have succeeded):', err);
-  }
-  // Re-sync to confirm
-  setTimeout(() => loadData(), 2000);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = img.onerror = () => {
+      // Both load and error are fine - the request was made either way.
+      // Apps Script returns JSON, not an image, so onerror fires, but
+      // the server still processed the request.
+      setTimeout(() => { loadData(); resolve(); }, 2500);
+    };
+    img.src = url;
+  });
 }
 
 function useDemoData() {
