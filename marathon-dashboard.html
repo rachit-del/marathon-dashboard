@@ -863,18 +863,40 @@ function splitCSVLine(line) {
   return result;
 }
 
-// POST to Apps Script - uses no-cors mode to handle Google's redirect
+// POST to Apps Script via a form submission workaround.
+// Google Apps Script redirects POSTs (302), which causes CORS issues with fetch.
+// Instead, we submit via a hidden iframe form - this bypasses CORS entirely.
 async function postToAppsScript(data) {
-  // Google Apps Script redirects POST requests, which causes CORS issues from file:// or localhost.
-  // Using no-cors mode means we can't read the response, but the write still goes through.
-  await fetch(CONFIG.SCRIPT_URL, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: { 'Content-Type': 'text/plain' },
-    body: JSON.stringify(data)
+  return new Promise((resolve, reject) => {
+    const iframeId = 'post_iframe_' + Date.now();
+    const iframe = document.createElement('iframe');
+    iframe.name = iframeId;
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = CONFIG.SCRIPT_URL;
+    form.target = iframeId;
+
+    // Send the JSON payload as a hidden field
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'payload';
+    input.value = JSON.stringify(data);
+    form.appendChild(input);
+
+    document.body.appendChild(form);
+    form.submit();
+
+    // Clean up and re-sync after a delay
+    setTimeout(() => {
+      form.remove();
+      iframe.remove();
+      loadData();
+      resolve();
+    }, 3000);
   });
-  // Re-sync after a short delay to confirm the write
-  setTimeout(() => loadData(), 2000);
 }
 
 function useDemoData() {

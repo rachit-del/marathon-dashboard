@@ -46,7 +46,13 @@ function doGet(e) {
 
 function doPost(e) {
   try {
-    const data = JSON.parse(e.postData.contents);
+    // Handle both JSON body and form-submitted payload
+    let data;
+    if (e.parameter && e.parameter.payload) {
+      data = JSON.parse(e.parameter.payload);
+    } else {
+      data = JSON.parse(e.postData.contents);
+    }
     const runner = data.runner;
     const token = data.token;
 
