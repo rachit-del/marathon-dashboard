@@ -1,0 +1,1864 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marathon Dashboard - Rachit & PJ</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ---- Theme Variables ---- */
+:root, html.light {
+  --bg: #f8fafc; --bg2: #ffffff; --bg3: #f1f5f9;
+  --tx: #0f172a; --tx2: #475569; --tx3: #94a3b8;
+  --border: #e2e8f0; --border2: #cbd5e1;
+  --rachit: #14b8a6; --rachit-bg: #ccfbf1; --rachit-light: rgba(20,184,166,0.12);
+  --pj: #f97316; --pj-bg: #ffedd5; --pj-light: rgba(249,115,22,0.12);
+  --accent: #8b5cf6; --accent-bg: #ede9fe;
+  --easy: #22c55e; --tempo: #f59e0b; --long: #3b82f6; --intervals: #a855f7; --rest: #94a3b8;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08); --shadow2: 0 4px 12px rgba(0,0,0,0.1);
+  --radius: 12px; --radius-sm: 8px;
+  --success: #22c55e; --danger: #ef4444;
+}
+html.dark {
+  --bg: #0f172a; --bg2: #1e293b; --bg3: #334155;
+  --tx: #f1f5f9; --tx2: #94a3b8; --tx3: #64748b;
+  --border: #334155; --border2: #475569;
+  --rachit-bg: rgba(20,184,166,0.15); --pj-bg: rgba(249,115,22,0.15);
+  --accent-bg: rgba(139,92,246,0.15);
+  --shadow: 0 1px 3px rgba(0,0,0,0.3); --shadow2: 0 4px 12px rgba(0,0,0,0.4);
+}
+
+/* ---- Reset & Base ---- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', -apple-system, sans-serif;
+  background: var(--bg); color: var(--tx);
+  display: flex; min-height: 100vh; transition: background 0.3s, color 0.3s;
+}
+a { color: var(--accent); text-decoration: none; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; }
+input, select, textarea { font-family: inherit; font-size: 0.9rem; }
+
+/* ---- Sidebar ---- */
+.sidebar {
+  width: 240px; background: var(--bg2); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; padding: 24px 0; position: fixed;
+  top: 0; left: 0; bottom: 0; z-index: 100; transition: transform 0.3s;
+}
+.sidebar-logo { padding: 0 20px 24px; font-size: 1.1rem; font-weight: 800; color: var(--accent); display: flex; align-items: center; gap: 8px; }
+.sidebar-logo span { font-size: 1.4rem; }
+.sidebar nav { flex: 1; display: flex; flex-direction: column; gap: 2px; padding: 0 8px; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+  border-radius: var(--radius-sm); color: var(--tx2); font-size: 0.9rem;
+  font-weight: 500; transition: all 0.2s;
+}
+.nav-item:hover { background: var(--bg3); color: var(--tx); }
+.nav-item.active { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
+.nav-item .icon { font-size: 1.1rem; width: 24px; text-align: center; }
+.sidebar-footer { padding: 16px 20px; border-top: 1px solid var(--border); }
+.runner-badge {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px;
+  border-radius: 20px; font-size: 0.8rem; font-weight: 600;
+}
+.runner-badge.rachit { background: var(--rachit-bg); color: var(--rachit); }
+.runner-badge.pj { background: var(--pj-bg); color: var(--pj); }
+
+/* ---- Main Content ---- */
+.main { margin-left: 240px; flex: 1; min-height: 100vh; }
+.topbar {
+  position: sticky; top: 0; z-index: 50; background: var(--bg2);
+  border-bottom: 1px solid var(--border); padding: 12px 24px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.topbar-left { display: flex; align-items: center; gap: 12px; }
+.topbar-right { display: flex; align-items: center; gap: 12px; }
+.countdown-badge {
+  background: linear-gradient(135deg, var(--accent), #6d28d9);
+  color: white; padding: 6px 14px; border-radius: 20px;
+  font-size: 0.8rem; font-weight: 700; letter-spacing: 0.5px;
+}
+.sync-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); }
+.sync-dot.stale { background: var(--danger); }
+.theme-toggle {
+  width: 36px; height: 36px; border-radius: 50%; display: flex;
+  align-items: center; justify-content: center; font-size: 1.1rem;
+  background: var(--bg3); transition: background 0.2s;
+}
+.theme-toggle:hover { background: var(--border); }
+.hamburger { display: none; font-size: 1.3rem; padding: 6px; }
+.content { padding: 24px; max-width: 1200px; margin: 0 auto; }
+
+/* ---- Pages ---- */
+.page { display: none; }
+.page.active { display: block; animation: fadeIn 0.3s; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* ---- Cards ---- */
+.card {
+  background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 20px; box-shadow: var(--shadow); transition: box-shadow 0.2s;
+}
+.card:hover { box-shadow: var(--shadow2); }
+.card-title { font-size: 0.8rem; font-weight: 600; color: var(--tx2); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+
+/* ---- Grid Layouts ---- */
+.grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+.grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
+.grid-6 { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; }
+
+/* ---- KPI Cards ---- */
+.kpi-value { font-size: 2rem; font-weight: 800; line-height: 1.1; }
+.kpi-unit { font-size: 0.9rem; font-weight: 500; color: var(--tx2); }
+.kpi-sub { font-size: 0.8rem; color: var(--tx3); margin-top: 4px; }
+
+/* ---- Countdown Hero ---- */
+.countdown-hero {
+  background: linear-gradient(135deg, #6d28d9, var(--accent), #2563eb);
+  border-radius: var(--radius); padding: 32px; color: white;
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px; position: relative; overflow: hidden;
+}
+.countdown-hero::after {
+  content: ''; position: absolute; top: -50%; right: -10%; width: 300px; height: 300px;
+  background: rgba(255,255,255,0.08); border-radius: 50%;
+}
+.countdown-title { font-size: 0.9rem; font-weight: 600; opacity: 0.85; margin-bottom: 4px; }
+.countdown-race { font-size: 1.6rem; font-weight: 800; margin-bottom: 12px; }
+.countdown-nums { display: flex; gap: 20px; }
+.countdown-item { text-align: center; }
+.countdown-item .num { font-size: 2.4rem; font-weight: 800; line-height: 1; }
+.countdown-item .label { font-size: 0.7rem; opacity: 0.7; text-transform: uppercase; letter-spacing: 1px; }
+.progress-ring-wrap { position: relative; z-index: 1; }
+.progress-pct { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 1.1rem; font-weight: 800; }
+
+/* ---- Phase Banner ---- */
+.phase-banner {
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px;
+  border-radius: 20px; font-size: 0.8rem; font-weight: 600;
+  margin-bottom: 16px;
+}
+.phase-banner.ramp { background: #dbeafe; color: #2563eb; }
+.phase-banner.base { background: #dcfce7; color: #16a34a; }
+.phase-banner.build { background: #fef3c7; color: #d97706; }
+.phase-banner.peak { background: #fee2e2; color: #dc2626; }
+.phase-banner.taper { background: #e0e7ff; color: #4f46e5; }
+.phase-banner.race { background: linear-gradient(135deg, #fbbf24, #f59e0b); color: #7c2d12; }
+html.dark .phase-banner.ramp { background: rgba(37,99,235,0.2); }
+html.dark .phase-banner.base { background: rgba(22,163,74,0.2); }
+html.dark .phase-banner.build { background: rgba(217,119,6,0.2); }
+html.dark .phase-banner.peak { background: rgba(220,38,38,0.2); }
+html.dark .phase-banner.taper { background: rgba(79,70,229,0.2); }
+
+/* ---- Buttons ---- */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 10px 18px;
+  border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 600; transition: all 0.2s;
+}
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: #7c3aed; }
+.btn-secondary { background: var(--bg3); color: var(--tx); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--border); }
+.btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+.btn-rachit { background: var(--rachit); color: white; }
+.btn-pj { background: var(--pj); color: white; }
+
+/* ---- Quick Actions ---- */
+.quick-actions { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+
+/* ---- Milestones / Badges ---- */
+.badge-grid { display: flex; flex-wrap: wrap; gap: 12px; }
+.badge-item {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 16px; border-radius: var(--radius); background: var(--bg3);
+  min-width: 100px; text-align: center; transition: all 0.3s; position: relative;
+}
+.badge-item.earned { background: var(--accent-bg); }
+.badge-item.earned .badge-icon { filter: none; }
+.badge-item .badge-icon { font-size: 2rem; filter: grayscale(1) opacity(0.4); transition: filter 0.3s; }
+.badge-item.earned .badge-icon { filter: none; animation: badgePop 0.5s; }
+.badge-item .badge-label { font-size: 0.7rem; font-weight: 600; color: var(--tx2); }
+.badge-item .badge-date { font-size: 0.65rem; color: var(--tx3); }
+@keyframes badgePop { 0% { transform: scale(0.5); } 50% { transform: scale(1.3); } 100% { transform: scale(1); } }
+
+/* ---- Training Plan ---- */
+.week-accordion { margin-bottom: 8px; }
+.week-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;
+}
+.week-header:hover { background: var(--bg3); }
+.week-header.current { border-color: var(--accent); background: var(--accent-bg); }
+.week-header .week-num { font-weight: 700; min-width: 70px; }
+.week-header .week-goal { font-size: 0.85rem; color: var(--tx2); flex: 1; margin: 0 12px; }
+.week-header .week-status { font-size: 0.8rem; font-weight: 600; }
+.week-body { display: none; padding: 12px 0; }
+.week-body.open { display: block; animation: fadeIn 0.2s; }
+.day-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.day-card {
+  padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+  background: var(--bg2); text-align: center; transition: all 0.2s; position: relative;
+}
+.day-card.completed { border-color: var(--success); background: rgba(34,197,94,0.05); }
+.day-card.missed { border-color: var(--danger); opacity: 0.6; }
+.day-card .day-name { font-size: 0.75rem; font-weight: 600; color: var(--tx3); text-transform: uppercase; }
+.day-card .day-type { font-size: 0.8rem; font-weight: 600; margin: 4px 0; }
+.day-card .day-type.easy { color: var(--easy); }
+.day-card .day-type.tempo { color: var(--tempo); }
+.day-card .day-type.long { color: var(--long); }
+.day-card .day-type.intervals { color: var(--intervals); }
+.day-card .day-type.rest { color: var(--rest); }
+.day-card .day-dist { font-size: 1.1rem; font-weight: 700; }
+.day-card .day-pace { font-size: 0.75rem; color: var(--tx3); }
+.day-card .check { position: absolute; top: 6px; right: 6px; font-size: 0.9rem; }
+.biweekly-banner {
+  background: var(--accent-bg); border-radius: var(--radius-sm); padding: 10px 16px;
+  margin-bottom: 8px; font-size: 0.85rem; font-weight: 600; color: var(--accent);
+  display: flex; align-items: center; gap: 8px;
+}
+.plan-filters { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.plan-filters .filter-btn {
+  padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; font-weight: 600;
+  background: var(--bg3); color: var(--tx2); border: 1px solid var(--border); transition: all 0.2s;
+}
+.plan-filters .filter-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+/* ---- Run Log ---- */
+.log-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.log-table th {
+  text-align: left; padding: 10px 12px; font-weight: 600; color: var(--tx2);
+  border-bottom: 2px solid var(--border); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.log-table td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.log-table tr:hover td { background: var(--bg3); }
+.run-type-dot {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px;
+}
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--tx2); margin-bottom: 4px; }
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg); color: var(--tx); outline: none; transition: border 0.2s;
+}
+.form-group input:focus, .form-group select:focus { border-color: var(--accent); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.effort-slider { width: 100%; accent-color: var(--accent); }
+.effort-val { font-size: 0.8rem; font-weight: 600; color: var(--accent); }
+
+/* ---- Calendar ---- */
+.cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.cal-header h3 { font-size: 1.1rem; font-weight: 700; }
+.cal-nav { display: flex; gap: 8px; }
+.cal-nav button { width: 32px; height: 32px; border-radius: 50%; background: var(--bg3); display: flex; align-items: center; justify-content: center; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-day-header { text-align: center; font-size: 0.75rem; font-weight: 600; color: var(--tx3); padding: 8px 0; }
+.cal-cell {
+  min-height: 80px; padding: 6px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg2); font-size: 0.75rem; position: relative; cursor: pointer; transition: all 0.2s;
+}
+.cal-cell:hover { border-color: var(--accent); }
+.cal-cell.today { border-color: var(--accent); background: var(--accent-bg); }
+.cal-cell.other-month { opacity: 0.4; }
+.cal-cell .cal-date { font-weight: 600; margin-bottom: 4px; }
+.cal-cell .cal-run { display: flex; align-items: center; gap: 3px; margin-top: 2px; font-size: 0.7rem; }
+.cal-cell .cal-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.cal-cell .cal-dot.rachit { background: var(--rachit); }
+.cal-cell .cal-dot.pj { background: var(--pj); }
+.cal-cell .cal-check { color: var(--success); font-weight: 700; }
+
+/* ---- Pace Calculator ---- */
+.pace-result {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px;
+}
+.pace-card {
+  padding: 16px; border-radius: var(--radius-sm); background: var(--bg3); text-align: center;
+}
+.pace-card .pace-dist { font-size: 0.8rem; font-weight: 600; color: var(--tx2); }
+.pace-card .pace-time { font-size: 1.4rem; font-weight: 800; margin: 4px 0; }
+.pace-card .pace-per-km { font-size: 0.8rem; color: var(--tx3); }
+.zone-table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+.zone-table th, .zone-table td { padding: 10px 14px; text-align: left; font-size: 0.85rem; }
+.zone-table th { font-weight: 600; color: var(--tx2); border-bottom: 2px solid var(--border); }
+.zone-table td { border-bottom: 1px solid var(--border); }
+.zone-color { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+
+/* ---- World Majors ---- */
+.major-card {
+  padding: 20px; border-radius: var(--radius); border: 2px solid var(--border);
+  text-align: center; transition: all 0.3s; background: var(--bg2);
+}
+.major-card.current { border-color: var(--accent); background: var(--accent-bg); }
+.major-card.completed { border-color: var(--success); }
+.major-card .major-emoji { font-size: 2.5rem; margin-bottom: 8px; }
+.major-card .major-name { font-size: 1rem; font-weight: 700; }
+.major-card .major-month { font-size: 0.8rem; color: var(--tx2); }
+.major-card .major-year { font-size: 0.85rem; font-weight: 600; color: var(--accent); margin-top: 6px; }
+.progress-bar-wrap { background: var(--bg3); border-radius: 10px; height: 12px; overflow: hidden; margin-top: 16px; }
+.progress-bar-fill { height: 100%; border-radius: 10px; background: linear-gradient(90deg, var(--accent), #6d28d9); transition: width 0.5s; }
+
+/* ---- Modal ---- */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200;
+  display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px);
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--bg2); border-radius: var(--radius); padding: 24px;
+  width: 90%; max-width: 480px; max-height: 85vh; overflow-y: auto;
+  box-shadow: var(--shadow2); animation: fadeIn 0.2s;
+}
+.modal h3 { font-size: 1.1rem; font-weight: 700; margin-bottom: 16px; }
+.modal-close { position: absolute; top: 12px; right: 16px; font-size: 1.2rem; }
+
+/* ---- Setup Screen ---- */
+.setup-screen {
+  position: fixed; inset: 0; background: var(--bg); z-index: 300;
+  display: flex; align-items: center; justify-content: center;
+}
+.setup-box { text-align: center; max-width: 400px; }
+.setup-box h2 { font-size: 1.5rem; font-weight: 800; margin-bottom: 8px; }
+.setup-box p { color: var(--tx2); margin-bottom: 24px; }
+.setup-runners { display: flex; gap: 16px; justify-content: center; margin-bottom: 20px; }
+.setup-runner-btn {
+  padding: 20px 32px; border-radius: var(--radius); font-size: 1.1rem; font-weight: 700;
+  border: 2px solid var(--border); transition: all 0.2s; background: var(--bg2);
+}
+.setup-runner-btn:hover { transform: translateY(-2px); box-shadow: var(--shadow2); }
+.setup-runner-btn.rachit:hover { border-color: var(--rachit); color: var(--rachit); }
+.setup-runner-btn.pj:hover { border-color: var(--pj); color: var(--pj); }
+.setup-config { margin-top: 16px; }
+.setup-config input { width: 100%; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 8px; background: var(--bg2); color: var(--tx); }
+
+/* ---- Sparkline ---- */
+.sparkline-wrap { display: flex; align-items: end; gap: 3px; height: 40px; }
+.sparkline-bar { flex: 1; border-radius: 2px 2px 0 0; transition: height 0.3s; min-width: 6px; }
+
+/* ---- Toast ---- */
+.toast {
+  position: fixed; bottom: 24px; right: 24px; padding: 12px 20px;
+  border-radius: var(--radius-sm); background: var(--bg2); border: 1px solid var(--border);
+  box-shadow: var(--shadow2); font-size: 0.85rem; font-weight: 500;
+  z-index: 300; transform: translateY(100px); opacity: 0; transition: all 0.3s;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { border-left: 4px solid var(--success); }
+.toast.error { border-left: 4px solid var(--danger); }
+
+/* ---- Responsive ---- */
+@media (max-width: 768px) {
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  .main { margin-left: 0; }
+  .hamburger { display: block; }
+  .countdown-hero { flex-direction: column; gap: 16px; text-align: center; }
+  .countdown-nums { justify-content: center; }
+  .grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .form-row { grid-template-columns: 1fr; }
+  .pace-result { grid-template-columns: 1fr; }
+}
+
+/* ---- Scrollbar ---- */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- Setup Screen (first visit) -->
+<div class="setup-screen" id="setupScreen" style="display:none">
+  <div class="setup-box">
+    <div style="font-size:3rem; margin-bottom:12px">🏃‍♂️</div>
+    <h2>Marathon Dashboard</h2>
+    <p>Rachit & PJ's journey to the London Marathon 2027</p>
+    <div class="setup-config">
+      <input type="text" id="setupSheetId" placeholder="Google Sheet ID (from the sheet URL)">
+      <input type="text" id="setupScriptUrl" placeholder="Apps Script Web App URL">
+      <input type="text" id="setupToken" placeholder="Your auth token">
+    </div>
+    <p style="font-size:0.85rem; margin-top:16px; margin-bottom:12px">Who are you?</p>
+    <div class="setup-runners">
+      <button class="setup-runner-btn rachit" onclick="completeSetup('Rachit')">Rachit</button>
+      <button class="setup-runner-btn pj" onclick="completeSetup('PJ')">PJ</button>
+    </div>
+    <p style="font-size:0.75rem; color:var(--tx3)">You can also use this dashboard with demo data (leave fields blank)</p>
+  </div>
+</div>
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo"><span>🏃</span> Marathon Dash</div>
+  <nav>
+    <button class="nav-item active" onclick="showPage('home')"><span class="icon">🏠</span> Home</button>
+    <button class="nav-item" onclick="showPage('plan')"><span class="icon">📋</span> Training Plan</button>
+    <button class="nav-item" onclick="showPage('log')"><span class="icon">📝</span> Run Log</button>
+    <button class="nav-item" onclick="showPage('chart')"><span class="icon">📊</span> Mileage Chart</button>
+    <button class="nav-item" onclick="showPage('calendar')"><span class="icon">📅</span> Calendar</button>
+    <button class="nav-item" onclick="showPage('pace')"><span class="icon">⏱️</span> Pace Calculator</button>
+    <button class="nav-item" onclick="showPage('majors')"><span class="icon">🌍</span> World Majors</button>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="runner-badge" id="sidebarBadge">-</div>
+  </div>
+</aside>
+
+<!-- Main -->
+<div class="main">
+  <!-- Top Bar -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <button class="hamburger" onclick="toggleSidebar()">☰</button>
+      <span style="font-weight:700" id="pageTitle">Home</span>
+    </div>
+    <div class="topbar-right">
+      <div class="countdown-badge" id="countdownBadge">-- days</div>
+      <button onclick="refreshData()" title="Refresh data" style="font-size:1.1rem">🔄</button>
+      <div class="sync-dot" id="syncDot" title="Connected"></div>
+      <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ===== PAGE: HOME ===== -->
+    <div class="page active" id="page-home">
+      <!-- Countdown Hero -->
+      <div class="countdown-hero">
+        <div>
+          <div class="countdown-title">LONDON MARATHON 2027</div>
+          <div class="countdown-race">Race Day Countdown</div>
+          <div class="countdown-nums">
+            <div class="countdown-item"><div class="num" id="cdDays">--</div><div class="label">Days</div></div>
+            <div class="countdown-item"><div class="num" id="cdHours">--</div><div class="label">Hours</div></div>
+            <div class="countdown-item"><div class="num" id="cdMins">--</div><div class="label">Minutes</div></div>
+          </div>
+        </div>
+        <div class="progress-ring-wrap">
+          <svg width="100" height="100">
+            <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="8"/>
+            <circle id="progressRing" cx="50" cy="50" r="42" fill="none" stroke="white" stroke-width="8"
+              stroke-dasharray="264" stroke-dashoffset="264" stroke-linecap="round"
+              transform="rotate(-90 50 50)" style="transition: stroke-dashoffset 1s"/>
+          </svg>
+          <div class="progress-pct" id="progressPct" style="color:white">0%</div>
+        </div>
+      </div>
+
+      <!-- Current Phase -->
+      <div id="currentPhase"></div>
+
+      <!-- Quick Actions -->
+      <div class="quick-actions">
+        <button class="btn btn-primary" onclick="openLogModal()">➕ Log Today's Run</button>
+        <button class="btn btn-secondary" onclick="logRestDay()">😴 Mark Rest Day</button>
+      </div>
+
+      <!-- KPIs -->
+      <div class="grid-4" style="margin-bottom:20px" id="kpiGrid">
+        <div class="card">
+          <div class="card-title">Total Distance</div>
+          <div class="kpi-value" id="kpiTotal">0 <span class="kpi-unit">km</span></div>
+          <div class="kpi-sub" id="kpiTotalSub">-</div>
+        </div>
+        <div class="card">
+          <div class="card-title">This Week</div>
+          <div class="kpi-value" id="kpiWeek">0 <span class="kpi-unit">km</span></div>
+          <div class="kpi-sub" id="kpiWeekSub">-</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Longest Run</div>
+          <div class="kpi-value" id="kpiLongest">0 <span class="kpi-unit">km</span></div>
+          <div class="kpi-sub" id="kpiLongestSub">-</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Run Streak</div>
+          <div class="kpi-value" id="kpiStreak">0 <span class="kpi-unit">days</span></div>
+          <div class="kpi-sub" id="kpiStreakSub">Keep it going!</div>
+        </div>
+      </div>
+
+      <!-- Sparklines -->
+      <div class="grid-2" style="margin-bottom:20px">
+        <div class="card">
+          <div class="card-title">Rachit - Last 8 Weeks</div>
+          <div class="sparkline-wrap" id="sparkRachit"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">PJ - Last 8 Weeks</div>
+          <div class="sparkline-wrap" id="sparkPJ"></div>
+        </div>
+      </div>
+
+      <!-- Milestones -->
+      <div class="card">
+        <div class="card-title">Milestones & Badges</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <button class="btn btn-sm btn-secondary" onclick="showBadges('mine')" id="badgeMine">My Badges</button>
+          <button class="btn btn-sm btn-secondary" onclick="showBadges('partner')" id="badgePartner">Partner's Badges</button>
+        </div>
+        <div class="badge-grid" id="badgeGrid"></div>
+      </div>
+    </div>
+
+    <!-- ===== PAGE: TRAINING PLAN ===== -->
+    <div class="page" id="page-plan">
+      <div class="plan-filters" id="planFilters">
+        <button class="filter-btn active" onclick="filterPlan('ALL')">All</button>
+        <button class="filter-btn" onclick="filterPlan('RAMP')">Ramp-Up</button>
+        <button class="filter-btn" onclick="filterPlan('BASE')">Base</button>
+        <button class="filter-btn" onclick="filterPlan('BUILD')">Build</button>
+        <button class="filter-btn" onclick="filterPlan('PEAK')">Peak</button>
+        <button class="filter-btn" onclick="filterPlan('TAPER')">Taper</button>
+        <button class="filter-btn" onclick="filterPlan('RACE')">Race</button>
+      </div>
+      <div style="display:flex; gap:8px; margin-bottom:16px">
+        <button class="btn btn-sm" onclick="togglePlanView('mine')" id="planMine" style="background:var(--accent);color:white">My Plan</button>
+        <button class="btn btn-sm btn-secondary" onclick="togglePlanView('both')" id="planBoth">Compare Both</button>
+      </div>
+      <div id="planContent"></div>
+    </div>
+
+    <!-- ===== PAGE: RUN LOG ===== -->
+    <div class="page" id="page-log">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm" onclick="filterLog('mine')" id="logMine" style="background:var(--accent);color:white">My Runs</button>
+          <button class="btn btn-sm btn-secondary" onclick="filterLog('partner')" id="logPartner">Partner's Runs</button>
+          <button class="btn btn-sm btn-secondary" onclick="filterLog('all')" id="logAll">All Runs</button>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="openLogModal()">➕ Log a Run</button>
+      </div>
+      <div class="card" style="overflow-x:auto">
+        <table class="log-table" id="logTable">
+          <thead>
+            <tr>
+              <th>Date</th><th>Runner</th><th>Type</th><th>Distance</th><th>Duration</th><th>Pace</th><th>Effort</th><th>Notes</th>
+            </tr>
+          </thead>
+          <tbody id="logBody"></tbody>
+        </table>
+        <div id="logEmpty" style="text-align:center;padding:40px;color:var(--tx3)">No runs logged yet. Start your journey!</div>
+      </div>
+    </div>
+
+    <!-- ===== PAGE: MILEAGE CHART ===== -->
+    <div class="page" id="page-chart">
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button class="btn btn-sm" onclick="chartView('distance')" id="chartDist" style="background:var(--accent);color:white">Distance</button>
+        <button class="btn btn-sm btn-secondary" onclick="chartView('duration')" id="chartDur">Duration</button>
+        <button class="btn btn-sm btn-secondary" onclick="chartView('count')" id="chartCount">Run Count</button>
+      </div>
+      <div class="card">
+        <canvas id="mileageChart" height="300"></canvas>
+      </div>
+    </div>
+
+    <!-- ===== PAGE: CALENDAR ===== -->
+    <div class="page" id="page-calendar">
+      <div class="cal-header">
+        <button class="btn btn-sm btn-secondary" onclick="calNav(-1)">◀</button>
+        <h3 id="calTitle">March 2026</h3>
+        <button class="btn btn-sm btn-secondary" onclick="calNav(1)">▶</button>
+      </div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
+
+    <!-- ===== PAGE: PACE CALCULATOR ===== -->
+    <div class="page" id="page-pace">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">Race Time Predictor</div>
+          <p style="font-size:0.8rem;color:var(--tx2);margin-bottom:12px">Enter a recent race result to predict finish times</p>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Distance (km)</label>
+              <select id="paceInputDist">
+                <option value="5">5K</option>
+                <option value="10">10K</option>
+                <option value="21.1">Half Marathon</option>
+                <option value="42.2">Marathon</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Time (HH:MM:SS)</label>
+              <input type="text" id="paceInputTime" placeholder="00:28:00" oninput="calcPace()">
+            </div>
+          </div>
+          <div class="pace-result" id="paceResults"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">Training Pace Zones</div>
+          <p style="font-size:0.8rem;color:var(--tx2);margin-bottom:12px">Based on your race result</p>
+          <table class="zone-table" id="zoneTable">
+            <thead><tr><th>Zone</th><th>Pace (/km)</th><th>Use</th></tr></thead>
+            <tbody id="zoneBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-title">Race Day Split Planner</div>
+        <div class="form-row" style="max-width:400px">
+          <div class="form-group">
+            <label>Target Marathon Time</label>
+            <input type="text" id="splitTarget" placeholder="04:30:00" oninput="calcSplits()">
+          </div>
+        </div>
+        <div id="splitResults" style="overflow-x:auto"></div>
+      </div>
+    </div>
+
+    <!-- ===== PAGE: WORLD MAJORS ===== -->
+    <div class="page" id="page-majors">
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-title">World Marathon Majors Progress</div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+          <span style="font-size:1.5rem;font-weight:800" id="majorsCount">0/6</span>
+          <span style="color:var(--tx2);font-size:0.9rem">Completed</span>
+        </div>
+        <div class="progress-bar-wrap"><div class="progress-bar-fill" id="majorsFill" style="width:0%"></div></div>
+      </div>
+      <div class="grid-3" id="majorsGrid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Log Run Modal -->
+<div class="modal-overlay" id="logModal">
+  <div class="modal">
+    <h3>Log a Run</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Date</label>
+        <input type="date" id="logDate">
+      </div>
+      <div class="form-group">
+        <label>Run Type</label>
+        <select id="logType">
+          <option value="Easy">Easy</option>
+          <option value="Tempo">Tempo</option>
+          <option value="LongRun">Long Run</option>
+          <option value="Intervals">Intervals</option>
+          <option value="Rest">Rest / Cross Train</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Distance (km)</label>
+        <input type="number" id="logDist" step="0.1" placeholder="0.0">
+      </div>
+      <div class="form-group">
+        <label>Duration (minutes)</label>
+        <input type="number" id="logDur" step="1" placeholder="0">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Avg Heart Rate (optional)</label>
+        <input type="number" id="logHR" placeholder="145">
+      </div>
+      <div class="form-group">
+        <label>Effort (RPE): <span class="effort-val" id="effortVal">5</span></label>
+        <input type="range" class="effort-slider" id="logEffort" min="1" max="10" value="5" oninput="document.getElementById('effortVal').textContent=this.value">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Notes (optional)</label>
+      <textarea id="logNotes" rows="2" placeholder="How did it feel?"></textarea>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-secondary" onclick="closeLogModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitRun()">Save Run</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// CONFIG & STATE
+// ============================================================
+const CONFIG = {
+  SHEET_ID: localStorage.getItem('marathon_sheet_id') || '',
+  SCRIPT_URL: localStorage.getItem('marathon_script_url') || '',
+  RACE_DATE: new Date('2027-04-27T09:00:00Z'), // London Marathon 2027
+  PLAN_START: new Date('2026-04-06'),
+  RACE_NAME: 'London Marathon 2027'
+};
+
+let STATE = {
+  runner: localStorage.getItem('marathon_runner') || '',
+  token: localStorage.getItem('marathon_token') || '',
+  theme: localStorage.getItem('marathon_theme') || 'light',
+  trainingPlan: [],
+  runLog: [],
+  milestones: [],
+  currentPage: 'home',
+  calMonth: new Date().getMonth(),
+  calYear: new Date().getFullYear(),
+  logFilter: 'mine',
+  planFilter: 'ALL',
+  planView: 'mine',
+  chartMode: 'distance',
+  badgeView: 'mine'
+};
+
+// Demo data for when no Google Sheets is configured
+const DEMO_DATA = generateDemoData();
+
+// ============================================================
+// INITIALIZATION
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  applyTheme(STATE.theme);
+  if (!STATE.runner) {
+    document.getElementById('setupScreen').style.display = 'flex';
+  } else {
+    init();
+  }
+});
+
+function completeSetup(runner) {
+  const sheetId = document.getElementById('setupSheetId').value.trim();
+  const scriptUrl = document.getElementById('setupScriptUrl').value.trim();
+  const token = document.getElementById('setupToken').value.trim();
+
+  STATE.runner = runner;
+  localStorage.setItem('marathon_runner', runner);
+
+  if (sheetId) { CONFIG.SHEET_ID = sheetId; localStorage.setItem('marathon_sheet_id', sheetId); }
+  if (scriptUrl) { CONFIG.SCRIPT_URL = scriptUrl; localStorage.setItem('marathon_script_url', scriptUrl); }
+  if (token) { STATE.token = token; localStorage.setItem('marathon_token', token); }
+
+  document.getElementById('setupScreen').style.display = 'none';
+  init();
+}
+
+function init() {
+  updateSidebarBadge();
+  updateCountdown();
+  setInterval(updateCountdown, 60000);
+  loadData();
+}
+
+// ============================================================
+// DATA LOADING
+// ============================================================
+async function loadData() {
+  if (CONFIG.SHEET_ID) {
+    try {
+      // Read directly from published Google Sheet (no auth needed, no CORS issues)
+      const tabs = ['Config', 'TrainingPlan', 'RunLog', 'Milestones'];
+      const results = await Promise.all(tabs.map(tab =>
+        fetch(`https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(tab)}`)
+          .then(r => r.ok ? r.text() : '')
+          .catch(() => '')
+      ));
+      const data = {};
+      tabs.forEach((tab, i) => {
+        data[tab] = parseCSV(results[i]);
+      });
+      STATE.trainingPlan = data.TrainingPlan || [];
+      STATE.runLog = (data.RunLog || []).map(normalizeRun);
+      STATE.milestones = data.Milestones || [];
+      document.getElementById('syncDot').classList.remove('stale');
+      showToast('Data synced from Google Sheets!', 'success');
+    } catch (err) {
+      console.warn('Failed to fetch from Sheets, trying Apps Script:', err);
+      // Fallback to Apps Script
+      if (CONFIG.SCRIPT_URL) {
+        try {
+          const res = await fetch(CONFIG.SCRIPT_URL, { redirect: 'follow' });
+          const data = await res.json();
+          if (data.error) throw new Error(data.error);
+          STATE.trainingPlan = data.TrainingPlan || [];
+          STATE.runLog = (data.RunLog || []).map(normalizeRun);
+          STATE.milestones = data.Milestones || [];
+          document.getElementById('syncDot').classList.remove('stale');
+          showToast('Data synced!', 'success');
+        } catch (err2) {
+          console.warn('Apps Script also failed, using demo data:', err2);
+          document.getElementById('syncDot').classList.add('stale');
+          useDemoData();
+        }
+      } else {
+        document.getElementById('syncDot').classList.add('stale');
+        useDemoData();
+      }
+    }
+  } else if (CONFIG.SCRIPT_URL) {
+    try {
+      const res = await fetch(CONFIG.SCRIPT_URL, { redirect: 'follow' });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      STATE.trainingPlan = data.TrainingPlan || [];
+      STATE.runLog = (data.RunLog || []).map(normalizeRun);
+      STATE.milestones = data.Milestones || [];
+      document.getElementById('syncDot').classList.remove('stale');
+      showToast('Data synced!', 'success');
+    } catch (err) {
+      console.warn('Failed to fetch, using demo data:', err);
+      document.getElementById('syncDot').classList.add('stale');
+      useDemoData();
+    }
+  } else {
+    useDemoData();
+  }
+  renderAll();
+}
+
+// Parse CSV text into array of objects (handles quoted fields with commas)
+function parseCSV(text) {
+  if (!text || !text.trim()) return [];
+  const lines = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"') {
+      if (inQuotes && text[i + 1] === '"') { current += '"'; i++; }
+      else { inQuotes = !inQuotes; }
+    } else if (ch === '\n' && !inQuotes) {
+      lines.push(current);
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  if (current.trim()) lines.push(current);
+
+  if (lines.length < 2) return [];
+  const headers = splitCSVLine(lines[0]);
+  return lines.slice(1).filter(l => l.trim()).map(line => {
+    const vals = splitCSVLine(line);
+    const obj = {};
+    headers.forEach((h, i) => { obj[h] = vals[i] || ''; });
+    return obj;
+  });
+}
+
+function splitCSVLine(line) {
+  const result = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+      else { inQuotes = !inQuotes; }
+    } else if (ch === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+// POST to Apps Script - uses no-cors mode to handle Google's redirect
+async function postToAppsScript(data) {
+  // Google Apps Script redirects POST requests, which causes CORS issues from file:// or localhost.
+  // Using no-cors mode means we can't read the response, but the write still goes through.
+  await fetch(CONFIG.SCRIPT_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify(data)
+  });
+  // Re-sync after a short delay to confirm the write
+  setTimeout(() => loadData(), 2000);
+}
+
+function useDemoData() {
+  STATE.trainingPlan = DEMO_DATA.trainingPlan;
+  STATE.runLog = DEMO_DATA.runLog;
+  STATE.milestones = DEMO_DATA.milestones;
+}
+
+function normalizeRun(r) {
+  return {
+    ...r,
+    ActualDistance_km: Number(r.ActualDistance_km) || 0,
+    ActualDuration_min: Number(r.ActualDuration_min) || 0,
+    Completed: r.Completed === true || r.Completed === 'TRUE'
+  };
+}
+
+async function refreshData() {
+  showToast('Refreshing...', 'success');
+  await loadData();
+}
+
+// ============================================================
+// RENDERING
+// ============================================================
+function renderAll() {
+  renderKPIs();
+  renderSparklines();
+  renderBadges();
+  renderPhase();
+  renderPlan();
+  renderLog();
+  renderChart();
+  renderCalendar();
+  renderMajors();
+  calcPace();
+}
+
+// ---- Countdown ----
+function updateCountdown() {
+  const now = new Date();
+  const diff = CONFIG.RACE_DATE - now;
+  if (diff <= 0) {
+    document.getElementById('cdDays').textContent = '0';
+    document.getElementById('cdHours').textContent = '0';
+    document.getElementById('cdMins').textContent = '0';
+    document.getElementById('countdownBadge').textContent = 'Race Day!';
+    return;
+  }
+  const days = Math.floor(diff / 86400000);
+  const hours = Math.floor((diff % 86400000) / 3600000);
+  const mins = Math.floor((diff % 3600000) / 60000);
+  document.getElementById('cdDays').textContent = days;
+  document.getElementById('cdHours').textContent = hours;
+  document.getElementById('cdMins').textContent = mins;
+  document.getElementById('countdownBadge').textContent = days + ' days to go';
+
+  // Progress ring
+  const totalDays = (CONFIG.RACE_DATE - CONFIG.PLAN_START) / 86400000;
+  const elapsed = (now - CONFIG.PLAN_START) / 86400000;
+  const pct = Math.max(0, Math.min(100, (elapsed / totalDays) * 100));
+  const circumference = 264;
+  document.getElementById('progressRing').style.strokeDashoffset = circumference - (pct / 100) * circumference;
+  document.getElementById('progressPct').textContent = Math.round(pct) + '%';
+}
+
+// ---- KPIs ----
+function renderKPIs() {
+  const myRuns = STATE.runLog.filter(r => r.Runner === STATE.runner && r.Completed);
+  const partnerRuns = STATE.runLog.filter(r => r.Runner !== STATE.runner && r.Completed);
+
+  const totalDist = myRuns.reduce((s, r) => s + r.ActualDistance_km, 0);
+  const partnerTotal = partnerRuns.reduce((s, r) => s + r.ActualDistance_km, 0);
+
+  // This week
+  const now = new Date();
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - now.getDay() + 1);
+  weekStart.setHours(0, 0, 0, 0);
+  const weekDist = myRuns.filter(r => new Date(r.Date) >= weekStart).reduce((s, r) => s + r.ActualDistance_km, 0);
+
+  // Longest run
+  const longest = myRuns.length ? Math.max(...myRuns.map(r => r.ActualDistance_km)) : 0;
+
+  // Streak
+  let streak = 0;
+  const sortedDates = [...new Set(myRuns.map(r => r.Date))].sort().reverse();
+  if (sortedDates.length) {
+    const today = new Date().toISOString().slice(0, 10);
+    let checkDate = new Date(today);
+    for (const d of sortedDates) {
+      const runDate = d.toString().slice(0, 10);
+      const checkStr = checkDate.toISOString().slice(0, 10);
+      if (runDate === checkStr) {
+        streak++;
+        checkDate.setDate(checkDate.getDate() - 1);
+      } else if (runDate < checkStr) {
+        break;
+      }
+    }
+  }
+
+  document.getElementById('kpiTotal').innerHTML = totalDist.toFixed(1) + ' <span class="kpi-unit">km</span>';
+  document.getElementById('kpiTotalSub').textContent = 'Partner: ' + partnerTotal.toFixed(1) + ' km';
+  document.getElementById('kpiWeek').innerHTML = weekDist.toFixed(1) + ' <span class="kpi-unit">km</span>';
+  document.getElementById('kpiWeekSub').textContent = 'Week ' + getCurrentWeek();
+  document.getElementById('kpiLongest').innerHTML = longest.toFixed(1) + ' <span class="kpi-unit">km</span>';
+  document.getElementById('kpiLongestSub').textContent = 'Personal best';
+  document.getElementById('kpiStreak').innerHTML = streak + ' <span class="kpi-unit">days</span>';
+}
+
+function getCurrentWeek() {
+  const now = new Date();
+  const diff = now - CONFIG.PLAN_START;
+  if (diff < 0) return 0;
+  return Math.floor(diff / (7 * 86400000)) + 1;
+}
+
+// ---- Sparklines ----
+function renderSparklines() {
+  renderSparkline('sparkRachit', 'Rachit', 'var(--rachit)');
+  renderSparkline('sparkPJ', 'PJ', 'var(--pj)');
+}
+
+function renderSparkline(containerId, runner, color) {
+  const container = document.getElementById(containerId);
+  const weeklyTotals = getWeeklyTotals(runner, 8);
+  const maxVal = Math.max(...weeklyTotals.map(w => w.dist), 1);
+  container.innerHTML = weeklyTotals.map(w => {
+    const h = Math.max(4, (w.dist / maxVal) * 36);
+    return `<div class="sparkline-bar" style="height:${h}px;background:${color}" title="Week ${w.week}: ${w.dist.toFixed(1)} km"></div>`;
+  }).join('');
+}
+
+function getWeeklyTotals(runner, numWeeks) {
+  const currentWeek = getCurrentWeek();
+  const weeks = [];
+  for (let i = numWeeks - 1; i >= 0; i--) {
+    const w = currentWeek - i;
+    if (w < 1) { weeks.push({ week: w, dist: 0 }); continue; }
+    const weekStart = new Date(CONFIG.PLAN_START);
+    weekStart.setDate(weekStart.getDate() + (w - 1) * 7);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 7);
+    const dist = STATE.runLog
+      .filter(r => r.Runner === runner && r.Completed && new Date(r.Date) >= weekStart && new Date(r.Date) < weekEnd)
+      .reduce((s, r) => s + r.ActualDistance_km, 0);
+    weeks.push({ week: w, dist });
+  }
+  return weeks;
+}
+
+// ---- Phase ----
+function renderPhase() {
+  const week = getCurrentWeek();
+  let phase = 'PRE-TRAINING';
+  let phaseClass = 'ramp';
+  if (week >= 1 && week <= 8) { phase = 'Ramp-Up'; phaseClass = 'ramp'; }
+  else if (week >= 9 && week <= 20) { phase = 'Base Building'; phaseClass = 'base'; }
+  else if (week >= 21 && week <= 36) { phase = 'Build'; phaseClass = 'build'; }
+  else if (week >= 37 && week <= 42) { phase = 'Peak'; phaseClass = 'peak'; }
+  else if (week >= 43 && week <= 50) { phase = 'Taper'; phaseClass = 'taper'; }
+  else if (week >= 51) { phase = 'Race Week!'; phaseClass = 'race'; }
+
+  const currentGoal = getCurrentGoal(week);
+  document.getElementById('currentPhase').innerHTML = `
+    <div class="phase-banner ${phaseClass}">📍 Phase: ${phase} &bull; Week ${week}</div>
+    ${currentGoal ? `<div style="font-size:0.9rem;color:var(--tx2);margin-bottom:16px">🎯 <strong>Bi-weekly goal:</strong> ${currentGoal}</div>` : ''}
+  `;
+}
+
+function getCurrentGoal(week) {
+  const entry = STATE.trainingPlan.find(p => Number(p.Week) === week && (p.Runner === STATE.runner || p.Runner === 'Both'));
+  return entry ? entry.BiWeeklyGoal : '';
+}
+
+// ---- Badges ----
+function renderBadges() {
+  const runner = STATE.badgeView === 'mine' ? STATE.runner : getPartner();
+  const earned = STATE.milestones.filter(m => m.Runner === runner);
+  const earnedTypes = earned.map(m => m.MilestoneType);
+
+  const allBadges = [
+    { type: 'FIRST_5K', icon: '👟', label: 'First 5K' },
+    { type: 'FIRST_10K', icon: '🏅', label: 'First 10K' },
+    { type: 'FIRST_HALF', icon: '🏆', label: 'First Half' },
+    { type: 'FIRST_30K', icon: '🔥', label: 'First 30K' },
+    { type: 'MARATHON', icon: '👑', label: 'Marathon!' },
+    { type: 'TOTAL_100K', icon: '⭐', label: '100km Total' },
+    { type: 'TOTAL_500K', icon: '🚀', label: '500km Total' },
+    { type: 'TOTAL_1000K', icon: '💎', label: '1000km Total' },
+    { type: 'LONGEST_RUN', icon: '📏', label: 'Longest Run' },
+  ];
+
+  const grid = document.getElementById('badgeGrid');
+  grid.innerHTML = allBadges.map(b => {
+    const isEarned = earnedTypes.includes(b.type);
+    const milestone = earned.find(m => m.MilestoneType === b.type);
+    return `<div class="badge-item ${isEarned ? 'earned' : ''}">
+      <div class="badge-icon">${b.icon}</div>
+      <div class="badge-label">${b.label}</div>
+      ${isEarned && milestone ? `<div class="badge-date">${milestone.DateAchieved?.toString().slice(0, 10) || ''}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  // Update button styles
+  document.getElementById('badgeMine').style.background = STATE.badgeView === 'mine' ? 'var(--accent)' : '';
+  document.getElementById('badgeMine').style.color = STATE.badgeView === 'mine' ? 'white' : '';
+  document.getElementById('badgePartner').style.background = STATE.badgeView === 'partner' ? 'var(--accent)' : '';
+  document.getElementById('badgePartner').style.color = STATE.badgeView === 'partner' ? 'white' : '';
+}
+
+function showBadges(view) {
+  STATE.badgeView = view;
+  renderBadges();
+}
+
+// ---- Training Plan ----
+function renderPlan() {
+  const container = document.getElementById('planContent');
+  const currentWeek = getCurrentWeek();
+  const runner = STATE.runner;
+
+  // Group plan by week
+  const weekMap = {};
+  STATE.trainingPlan.forEach(entry => {
+    const w = Number(entry.Week);
+    if (!weekMap[w]) weekMap[w] = { goal: entry.BiWeeklyGoal, phase: entry.Phase, runs: [] };
+    if (STATE.planView === 'both' || entry.Runner === runner || entry.Runner === 'Both') {
+      weekMap[w].runs.push(entry);
+    }
+  });
+
+  const weeks = Object.keys(weekMap).map(Number).sort((a, b) => a - b);
+  let html = '';
+  let lastGoal = '';
+
+  weeks.forEach(w => {
+    const data = weekMap[w];
+    const phase = data.phase || '';
+
+    // Filter by phase
+    if (STATE.planFilter !== 'ALL') {
+      if (!phase.includes(STATE.planFilter)) return;
+    }
+
+    // Bi-weekly goal banner
+    if (data.goal && data.goal !== lastGoal) {
+      html += `<div class="biweekly-banner">🎯 ${data.goal}</div>`;
+      lastGoal = data.goal;
+    }
+
+    const isCurrent = w === currentWeek;
+    const completedRuns = data.runs.filter(r => isRunCompleted(r)).length;
+    const totalRuns = data.runs.filter(r => r.RunType !== 'Rest').length;
+
+    html += `<div class="week-accordion">
+      <div class="week-header ${isCurrent ? 'current' : ''}" onclick="toggleWeek(this)">
+        <span class="week-num">Week ${w}</span>
+        <span class="week-goal">${data.goal || ''}</span>
+        <span class="week-status">${completedRuns}/${totalRuns} runs</span>
+      </div>
+      <div class="week-body ${isCurrent ? 'open' : ''}">
+        <div class="day-cards">
+          ${data.runs.map(r => renderDayCard(r, w)).join('')}
+        </div>
+      </div>
+    </div>`;
+  });
+
+  container.innerHTML = html || '<div style="text-align:center;padding:40px;color:var(--tx3)">No training plan data yet.</div>';
+}
+
+function renderDayCard(entry, week) {
+  const typeClass = (entry.RunType || '').toLowerCase().replace('longrun', 'long');
+  const completed = isRunCompleted(entry);
+  const past = isPastDay(entry.Day, week);
+  const statusClass = completed ? 'completed' : (past ? 'missed' : '');
+  const runnerLabel = STATE.planView === 'both' ? `<div style="font-size:0.65rem;color:${entry.Runner === 'Rachit' ? 'var(--rachit)' : 'var(--pj)'};font-weight:600">${entry.Runner}</div>` : '';
+
+  return `<div class="day-card ${statusClass}" onclick="quickLogFromPlan(${week}, '${entry.Day}', '${entry.RunType}', ${entry.TargetDistance_km || 0})">
+    ${completed ? '<div class="check">✅</div>' : ''}
+    ${runnerLabel}
+    <div class="day-name">${entry.Day || ''}</div>
+    <div class="day-type ${typeClass}">${entry.RunType || ''}</div>
+    <div class="day-dist">${entry.TargetDistance_km || 0} km</div>
+    <div class="day-pace">${entry.TargetPace || ''}/km</div>
+  </div>`;
+}
+
+function isRunCompleted(planEntry) {
+  return STATE.runLog.some(r =>
+    r.Runner === (planEntry.Runner || STATE.runner) &&
+    r.Completed &&
+    Number(r.Week) === Number(planEntry.Week) &&
+    r.PlannedRunType === planEntry.RunType
+  );
+}
+
+function isPastDay(dayName, week) {
+  const currentWeek = getCurrentWeek();
+  if (week < currentWeek) return true;
+  if (week > currentWeek) return false;
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const todayIdx = (new Date().getDay() + 6) % 7;
+  const dayIdx = days.indexOf(dayName);
+  return dayIdx < todayIdx;
+}
+
+function toggleWeek(el) {
+  const body = el.nextElementSibling;
+  body.classList.toggle('open');
+}
+
+function filterPlan(phase) {
+  STATE.planFilter = phase;
+  document.querySelectorAll('#planFilters .filter-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  renderPlan();
+}
+
+function togglePlanView(view) {
+  STATE.planView = view;
+  document.getElementById('planMine').style.background = view === 'mine' ? 'var(--accent)' : '';
+  document.getElementById('planMine').style.color = view === 'mine' ? 'white' : '';
+  document.getElementById('planBoth').style.background = view === 'both' ? 'var(--accent)' : '';
+  document.getElementById('planBoth').style.color = view === 'both' ? 'white' : '';
+  renderPlan();
+}
+
+// ---- Run Log ----
+function renderLog() {
+  const runs = getFilteredRuns();
+  const body = document.getElementById('logBody');
+  const empty = document.getElementById('logEmpty');
+
+  if (runs.length === 0) {
+    body.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  const sorted = [...runs].sort((a, b) => new Date(b.Date) - new Date(a.Date));
+  body.innerHTML = sorted.map(r => {
+    const typeColor = getTypeColor(r.PlannedRunType);
+    const runnerColor = r.Runner === 'Rachit' ? 'var(--rachit)' : 'var(--pj)';
+    return `<tr>
+      <td>${formatDateDisplay(r.Date)}</td>
+      <td><span style="color:${runnerColor};font-weight:600">${r.Runner}</span></td>
+      <td><span class="run-type-dot" style="background:${typeColor}"></span>${r.PlannedRunType || '-'}</td>
+      <td><strong>${r.ActualDistance_km.toFixed(1)}</strong> km</td>
+      <td>${r.ActualDuration_min ? r.ActualDuration_min + ' min' : '-'}</td>
+      <td>${r.AvgPace || calcPaceFromRun(r)}</td>
+      <td>${r.Effort ? r.Effort + '/10' : '-'}</td>
+      <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.Notes || ''}</td>
+    </tr>`;
+  }).join('');
+}
+
+function getFilteredRuns() {
+  if (STATE.logFilter === 'mine') return STATE.runLog.filter(r => r.Runner === STATE.runner);
+  if (STATE.logFilter === 'partner') return STATE.runLog.filter(r => r.Runner !== STATE.runner);
+  return STATE.runLog;
+}
+
+function filterLog(filter) {
+  STATE.logFilter = filter;
+  ['logMine', 'logPartner', 'logAll'].forEach(id => {
+    const el = document.getElementById(id);
+    el.style.background = ''; el.style.color = '';
+    el.className = 'btn btn-sm btn-secondary';
+  });
+  const activeId = filter === 'mine' ? 'logMine' : filter === 'partner' ? 'logPartner' : 'logAll';
+  const el = document.getElementById(activeId);
+  el.style.background = 'var(--accent)';
+  el.style.color = 'white';
+  renderLog();
+}
+
+// ---- Mileage Chart ----
+let mileageChartInstance = null;
+
+function renderChart() {
+  const ctx = document.getElementById('mileageChart').getContext('2d');
+  if (mileageChartInstance) mileageChartInstance.destroy();
+
+  const maxWeek = Math.max(getCurrentWeek() + 4, 20);
+  const weeks = Array.from({ length: maxWeek }, (_, i) => i + 1);
+
+  const rachitData = weeks.map(w => getWeekValue('Rachit', w));
+  const pjData = weeks.map(w => getWeekValue('PJ', w));
+  const targetData = weeks.map(w => getWeekTarget(w));
+
+  const label = STATE.chartMode === 'distance' ? 'km' : STATE.chartMode === 'duration' ? 'min' : 'runs';
+
+  mileageChartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: weeks.map(w => 'W' + w),
+      datasets: [
+        {
+          label: 'Rachit',
+          data: rachitData,
+          borderColor: '#14b8a6',
+          backgroundColor: 'rgba(20,184,166,0.1)',
+          fill: true, tension: 0.3, pointRadius: 3
+        },
+        {
+          label: 'PJ',
+          data: pjData,
+          borderColor: '#f97316',
+          backgroundColor: 'rgba(249,115,22,0.1)',
+          fill: true, tension: 0.3, pointRadius: 3
+        },
+        {
+          label: 'Target (' + label + ')',
+          data: targetData,
+          borderColor: '#94a3b8',
+          borderDash: [5, 5],
+          fill: false, tension: 0.3, pointRadius: 0
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: { mode: 'index', intersect: false }
+      },
+      scales: {
+        y: { beginAtZero: true, title: { display: true, text: label } }
+      }
+    }
+  });
+}
+
+function getWeekValue(runner, week) {
+  const weekStart = new Date(CONFIG.PLAN_START);
+  weekStart.setDate(weekStart.getDate() + (week - 1) * 7);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekEnd.getDate() + 7);
+
+  const runs = STATE.runLog.filter(r =>
+    r.Runner === runner && r.Completed &&
+    new Date(r.Date) >= weekStart && new Date(r.Date) < weekEnd
+  );
+
+  if (STATE.chartMode === 'distance') return runs.reduce((s, r) => s + r.ActualDistance_km, 0);
+  if (STATE.chartMode === 'duration') return runs.reduce((s, r) => s + r.ActualDuration_min, 0);
+  return runs.length;
+}
+
+function getWeekTarget(week) {
+  const planRuns = STATE.trainingPlan.filter(p => Number(p.Week) === week && p.Runner === STATE.runner);
+  if (STATE.chartMode === 'distance') return planRuns.reduce((s, r) => s + (Number(r.TargetDistance_km) || 0), 0);
+  if (STATE.chartMode === 'count') return planRuns.filter(r => r.RunType !== 'Rest').length;
+  return 0; // Can't estimate duration target
+}
+
+function chartView(mode) {
+  STATE.chartMode = mode;
+  ['chartDist', 'chartDur', 'chartCount'].forEach(id => {
+    const el = document.getElementById(id);
+    el.style.background = ''; el.style.color = '';
+    el.className = 'btn btn-sm btn-secondary';
+  });
+  const activeId = mode === 'distance' ? 'chartDist' : mode === 'duration' ? 'chartDur' : 'chartCount';
+  document.getElementById(activeId).style.background = 'var(--accent)';
+  document.getElementById(activeId).style.color = 'white';
+  renderChart();
+}
+
+// ---- Calendar ----
+function renderCalendar() {
+  const year = STATE.calYear;
+  const month = STATE.calMonth;
+  document.getElementById('calTitle').textContent = new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  const grid = document.getElementById('calGrid');
+  const dayHeaders = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  let html = dayHeaders.map(d => `<div class="cal-day-header">${d}</div>`).join('');
+
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  let startOffset = (firstDay.getDay() + 6) % 7;
+
+  // Previous month days
+  for (let i = startOffset - 1; i >= 0; i--) {
+    const d = new Date(year, month, -i);
+    html += renderCalCell(d, true);
+  }
+
+  // Current month days
+  for (let d = 1; d <= lastDay.getDate(); d++) {
+    const date = new Date(year, month, d);
+    html += renderCalCell(date, false);
+  }
+
+  // Next month days
+  const totalCells = startOffset + lastDay.getDate();
+  const remaining = (7 - (totalCells % 7)) % 7;
+  for (let d = 1; d <= remaining; d++) {
+    const date = new Date(year, month + 1, d);
+    html += renderCalCell(date, true);
+  }
+
+  grid.innerHTML = html;
+}
+
+function renderCalCell(date, otherMonth) {
+  const dateStr = date.toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10);
+  const isToday = dateStr === today;
+
+  // Find runs for this date
+  const dayRuns = STATE.runLog.filter(r => r.Date && r.Date.toString().slice(0, 10) === dateStr && r.Completed);
+  const rachitRun = dayRuns.find(r => r.Runner === 'Rachit');
+  const pjRun = dayRuns.find(r => r.Runner === 'PJ');
+
+  // Find planned runs
+  const week = getWeekForDate(date);
+  const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()];
+  const plannedRachit = STATE.trainingPlan.find(p => Number(p.Week) === week && p.Day === dayName && p.Runner === 'Rachit');
+  const plannedPJ = STATE.trainingPlan.find(p => Number(p.Week) === week && p.Day === dayName && p.Runner === 'PJ');
+
+  let runHtml = '';
+  if (rachitRun) {
+    runHtml += `<div class="cal-run"><span class="cal-dot rachit"></span><span class="cal-check">✓</span>${rachitRun.ActualDistance_km.toFixed(0)}km</div>`;
+  } else if (plannedRachit && !otherMonth) {
+    runHtml += `<div class="cal-run"><span class="cal-dot rachit"></span>${getRunTypeAbbr(plannedRachit.RunType)} ${plannedRachit.TargetDistance_km}km</div>`;
+  }
+  if (pjRun) {
+    runHtml += `<div class="cal-run"><span class="cal-dot pj"></span><span class="cal-check">✓</span>${pjRun.ActualDistance_km.toFixed(0)}km</div>`;
+  } else if (plannedPJ && !otherMonth) {
+    runHtml += `<div class="cal-run"><span class="cal-dot pj"></span>${getRunTypeAbbr(plannedPJ.RunType)} ${plannedPJ.TargetDistance_km}km</div>`;
+  }
+
+  return `<div class="cal-cell ${isToday ? 'today' : ''} ${otherMonth ? 'other-month' : ''}" onclick="calDayClick('${dateStr}')">
+    <div class="cal-date">${date.getDate()}</div>
+    ${runHtml}
+  </div>`;
+}
+
+function getWeekForDate(date) {
+  const diff = date - CONFIG.PLAN_START;
+  if (diff < 0) return 0;
+  return Math.floor(diff / (7 * 86400000)) + 1;
+}
+
+function calNav(dir) {
+  STATE.calMonth += dir;
+  if (STATE.calMonth > 11) { STATE.calMonth = 0; STATE.calYear++; }
+  if (STATE.calMonth < 0) { STATE.calMonth = 11; STATE.calYear--; }
+  renderCalendar();
+}
+
+function calDayClick(dateStr) {
+  document.getElementById('logDate').value = dateStr;
+  openLogModal();
+}
+
+// ---- Pace Calculator ----
+function calcPace() {
+  const dist = parseFloat(document.getElementById('paceInputDist').value) || 5;
+  const timeStr = document.getElementById('paceInputTime').value;
+  const seconds = parseTimeToSeconds(timeStr);
+  if (!seconds) return;
+
+  const predictions = [
+    { label: '5K', dist: 5 },
+    { label: '10K', dist: 10 },
+    { label: 'Half Marathon', dist: 21.1 },
+    { label: 'Marathon', dist: 42.195 }
+  ];
+
+  const resultsDiv = document.getElementById('paceResults');
+  resultsDiv.innerHTML = predictions.map(p => {
+    const predicted = seconds * Math.pow(p.dist / dist, 1.06);
+    const pace = predicted / p.dist;
+    return `<div class="pace-card">
+      <div class="pace-dist">${p.label}</div>
+      <div class="pace-time">${formatSeconds(predicted)}</div>
+      <div class="pace-per-km">${formatSeconds(pace)}/km</div>
+    </div>`;
+  }).join('');
+
+  // Zones
+  const marathonPace = (seconds * Math.pow(42.195 / dist, 1.06)) / 42.195;
+  const zones = [
+    { name: 'Recovery', color: 'var(--rest)', min: marathonPace * 1.3, max: marathonPace * 1.45, use: 'Rest days, warm up' },
+    { name: 'Easy', color: 'var(--easy)', min: marathonPace * 1.15, max: marathonPace * 1.3, use: 'Most training runs' },
+    { name: 'Marathon Pace', color: 'var(--long)', min: marathonPace * 0.98, max: marathonPace * 1.05, use: 'Race pace practice' },
+    { name: 'Tempo', color: 'var(--tempo)', min: marathonPace * 0.88, max: marathonPace * 0.95, use: 'Threshold training' },
+    { name: 'Interval', color: 'var(--intervals)', min: marathonPace * 0.78, max: marathonPace * 0.85, use: 'Speed work' }
+  ];
+
+  document.getElementById('zoneBody').innerHTML = zones.map(z =>
+    `<tr>
+      <td><span class="zone-color" style="background:${z.color}"></span>${z.name}</td>
+      <td>${formatSeconds(z.min)} - ${formatSeconds(z.max)}</td>
+      <td style="color:var(--tx2)">${z.use}</td>
+    </tr>`
+  ).join('');
+}
+
+function calcSplits() {
+  const timeStr = document.getElementById('splitTarget').value;
+  const totalSeconds = parseTimeToSeconds(timeStr);
+  if (!totalSeconds) return;
+
+  const pacePerKm = totalSeconds / 42.195;
+  let html = '<table class="zone-table"><thead><tr><th>Split</th><th>Distance</th><th>Cumulative Time</th><th>Pace</th></tr></thead><tbody>';
+
+  for (let km = 5; km <= 40; km += 5) {
+    html += `<tr>
+      <td>${km}km</td>
+      <td>5 km</td>
+      <td>${formatSeconds(pacePerKm * km)}</td>
+      <td>${formatSeconds(pacePerKm)}/km</td>
+    </tr>`;
+  }
+  html += `<tr style="font-weight:700">
+    <td>Finish</td>
+    <td>42.195 km</td>
+    <td>${formatSeconds(totalSeconds)}</td>
+    <td>${formatSeconds(pacePerKm)}/km</td>
+  </tr>`;
+  html += '</tbody></table>';
+
+  document.getElementById('splitResults').innerHTML = html;
+}
+
+// ---- World Majors ----
+function renderMajors() {
+  const majors = [
+    { name: 'Tokyo', emoji: '🗼', month: 'March', year: '2028' },
+    { name: 'Boston', emoji: '🦞', month: 'April', year: '2029' },
+    { name: 'London', emoji: '🎡', month: 'April', year: '2027', current: true },
+    { name: 'Berlin', emoji: '🐻', month: 'September', year: '2030' },
+    { name: 'Chicago', emoji: '🌭', month: 'October', year: '2031' },
+    { name: 'New York', emoji: '🗽', month: 'November', year: '2032' }
+  ];
+
+  const completed = 0;
+  document.getElementById('majorsCount').textContent = completed + '/6';
+  document.getElementById('majorsFill').style.width = (completed / 6 * 100) + '%';
+
+  document.getElementById('majorsGrid').innerHTML = majors.map(m =>
+    `<div class="major-card ${m.current ? 'current' : ''}">
+      <div class="major-emoji">${m.emoji}</div>
+      <div class="major-name">${m.name} Marathon</div>
+      <div class="major-month">${m.month}</div>
+      <div class="major-year">${m.year}${m.current ? ' ⬅ NEXT' : ''}</div>
+    </div>`
+  ).join('');
+}
+
+// ============================================================
+// ACTIONS
+// ============================================================
+function openLogModal() {
+  document.getElementById('logDate').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('logModal').classList.add('open');
+}
+
+function closeLogModal() {
+  document.getElementById('logModal').classList.remove('open');
+}
+
+function quickLogFromPlan(week, day, runType, dist) {
+  const weekStart = new Date(CONFIG.PLAN_START);
+  weekStart.setDate(weekStart.getDate() + (week - 1) * 7);
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const dayOffset = days.indexOf(day);
+  const date = new Date(weekStart);
+  date.setDate(date.getDate() + dayOffset);
+
+  document.getElementById('logDate').value = date.toISOString().slice(0, 10);
+  document.getElementById('logType').value = runType;
+  document.getElementById('logDist').value = dist;
+  document.getElementById('logModal').classList.add('open');
+}
+
+async function submitRun() {
+  const run = {
+    id: crypto.randomUUID ? crypto.randomUUID() : 'run_' + Date.now(),
+    date: document.getElementById('logDate').value,
+    runType: document.getElementById('logType').value,
+    distance: parseFloat(document.getElementById('logDist').value) || 0,
+    duration: parseFloat(document.getElementById('logDur').value) || 0,
+    heartRate: document.getElementById('logHR').value,
+    effort: document.getElementById('logEffort').value,
+    notes: document.getElementById('logNotes').value,
+    week: getWeekForDate(new Date(document.getElementById('logDate').value))
+  };
+
+  // Optimistic local update
+  STATE.runLog.push({
+    ID: run.id,
+    Runner: STATE.runner,
+    Date: run.date,
+    Week: run.week,
+    PlannedRunType: run.runType,
+    ActualDistance_km: run.distance,
+    ActualDuration_min: run.duration,
+    AvgPace: run.distance && run.duration ? formatSeconds((run.duration * 60) / run.distance) : '',
+    HeartRateAvg: run.heartRate,
+    Effort: run.effort,
+    Notes: run.notes,
+    Completed: true,
+    Timestamp: new Date().toISOString()
+  });
+
+  closeLogModal();
+  renderAll();
+  showToast('Run logged! 🎉', 'success');
+
+  // Send to Google Sheets
+  if (CONFIG.SCRIPT_URL) {
+    try {
+      await postToAppsScript({
+        action: 'logRun',
+        runner: STATE.runner,
+        token: STATE.token,
+        ...run
+      });
+    } catch (err) {
+      showToast('Saved locally. Sync failed: ' + err.message, 'error');
+    }
+  }
+}
+
+async function logRestDay() {
+  const today = new Date().toISOString().slice(0, 10);
+  STATE.runLog.push({
+    ID: 'rest_' + Date.now(),
+    Runner: STATE.runner,
+    Date: today,
+    Week: getCurrentWeek(),
+    PlannedRunType: 'Rest',
+    ActualDistance_km: 0,
+    ActualDuration_min: 0,
+    AvgPace: '',
+    Effort: '',
+    Notes: 'Rest day',
+    Completed: true,
+    Timestamp: new Date().toISOString()
+  });
+  renderAll();
+  showToast('Rest day logged 😴', 'success');
+
+  if (CONFIG.SCRIPT_URL) {
+    try {
+      await postToAppsScript({
+        action: 'markComplete',
+        runner: STATE.runner,
+        token: STATE.token,
+        date: today,
+        week: getCurrentWeek(),
+        runType: 'Rest',
+        distance: 0,
+        completed: true,
+        notes: 'Rest day'
+      });
+    } catch (err) { /* silent fail, local data saved */ }
+  }
+}
+
+// ============================================================
+// NAVIGATION & UI
+// ============================================================
+function showPage(page) {
+  STATE.currentPage = page;
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  event.target.closest('.nav-item').classList.add('active');
+
+  const titles = { home: 'Home', plan: 'Training Plan', log: 'Run Log', chart: 'Weekly Mileage', calendar: 'Calendar', pace: 'Pace Calculator', majors: 'World Majors' };
+  document.getElementById('pageTitle').textContent = titles[page] || page;
+
+  // Re-render chart when visible (Chart.js needs visible canvas)
+  if (page === 'chart') setTimeout(renderChart, 100);
+  if (page === 'calendar') renderCalendar();
+
+  // Close sidebar on mobile
+  document.getElementById('sidebar').classList.remove('open');
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+}
+
+function toggleTheme() {
+  STATE.theme = STATE.theme === 'light' ? 'dark' : 'light';
+  applyTheme(STATE.theme);
+  localStorage.setItem('marathon_theme', STATE.theme);
+}
+
+function applyTheme(theme) {
+  document.documentElement.className = theme;
+  document.getElementById('themeBtn').textContent = theme === 'dark' ? '☀️' : '🌙';
+}
+
+function updateSidebarBadge() {
+  const badge = document.getElementById('sidebarBadge');
+  badge.textContent = STATE.runner;
+  badge.className = 'runner-badge ' + STATE.runner.toLowerCase();
+}
+
+function showToast(msg, type) {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.className = 'toast ' + type + ' show';
+  setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+// ============================================================
+// UTILITIES
+// ============================================================
+function getPartner() {
+  return STATE.runner === 'Rachit' ? 'PJ' : 'Rachit';
+}
+
+function getTypeColor(type) {
+  const colors = { Easy: 'var(--easy)', Tempo: 'var(--tempo)', LongRun: 'var(--long)', Intervals: 'var(--intervals)', Rest: 'var(--rest)' };
+  return colors[type] || 'var(--tx3)';
+}
+
+function getRunTypeAbbr(type) {
+  const abbrs = { Easy: 'E', Tempo: 'T', LongRun: 'L', Intervals: 'I', Rest: 'R', CrossTrain: 'X', RacePace: 'RP' };
+  return abbrs[type] || '?';
+}
+
+function formatDateDisplay(dateStr) {
+  if (!dateStr) return '-';
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function calcPaceFromRun(r) {
+  if (!r.ActualDistance_km || !r.ActualDuration_min) return '-';
+  return formatSeconds((r.ActualDuration_min * 60) / r.ActualDistance_km) + '/km';
+}
+
+function parseTimeToSeconds(str) {
+  if (!str) return 0;
+  const parts = str.split(':').map(Number);
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return 0;
+}
+
+function formatSeconds(secs) {
+  if (!secs || isNaN(secs)) return '--:--';
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = Math.floor(secs % 60);
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+// ============================================================
+// DEMO DATA GENERATOR
+// ============================================================
+function generateDemoData() {
+  const plan = [];
+  const log = [];
+  const milestones = [];
+
+  // Generate a simple training plan for demo
+  const phases = [
+    { weeks: [1, 2, 3, 4, 5, 6, 7, 8], phase: 'RAMP_RACHIT', runner: 'Rachit', baseDist: 3, increment: 0.3 },
+    { weeks: [1, 2, 3, 4, 5, 6, 7, 8], phase: 'RAMP_PJ', runner: 'PJ', baseDist: 6, increment: 0.5 }
+  ];
+
+  const startDate = CONFIG.PLAN_START;
+
+  // Rachit ramp up
+  for (let w = 1; w <= 8; w++) {
+    const ws = new Date(startDate);
+    ws.setDate(ws.getDate() + (w - 1) * 7);
+    const dist = 3 + (w - 1) * 0.3;
+    const longDist = dist + 1.5;
+    const goals = ['Complete walk/run sessions', 'Complete walk/run sessions', 'Run 2 min continuously', 'Run 3 min continuously', 'Run 5 min continuously', 'Run 8 min continuously', 'Run 10 min continuously', 'Run 5K without stopping'];
+    plan.push({ Week: w, StartDate: ws.toISOString().slice(0, 10), Phase: 'RAMP_RACHIT', Runner: 'Rachit', Day: 'Mon', RunType: 'Easy', TargetDistance_km: dist.toFixed(1), TargetPace: '7:00', Description: 'Easy run', BiWeeklyGoal: goals[w - 1] });
+    plan.push({ Week: w, StartDate: ws.toISOString().slice(0, 10), Phase: 'RAMP_RACHIT', Runner: 'Rachit', Day: 'Wed', RunType: 'Easy', TargetDistance_km: dist.toFixed(1), TargetPace: '7:00', Description: 'Easy run', BiWeeklyGoal: goals[w - 1] });
+    plan.push({ Week: w, StartDate: ws.toISOString().slice(0, 10), Phase: 'RAMP_RACHIT', Runner: 'Rachit', Day: 'Sat', RunType: 'LongRun', TargetDistance_km: longDist.toFixed(1), TargetPace: '7:15', Description: 'Long run', BiWeeklyGoal: goals[w - 1] });
+  }
+
+  // PJ ramp up
+  for (let w = 1; w <= 8; w++) {
+    const ws = new Date(startDate);
+    ws.setDate(ws.getDate() + (w - 1) * 7);
+    const dist = 6 + (w - 1) * 0.5;
+    const longDist = 10 + (w - 1);
+    const goals = ['Consistent 3-4x per week', 'Consistent 3-4x per week', 'First 30km week', 'First 30km week', 'Build to 15km long run', 'Build to 15km long run', 'Long run reaches 18km', 'Long run reaches 18km'];
+    plan.push({ Week: w, StartDate: ws.toISOString().slice(0, 10), Phase: 'RAMP_PJ', Runner: 'PJ', Day: 'Tue', RunType: 'Easy', TargetDistance_km: dist.toFixed(1), TargetPace: '5:45', Description: 'Easy run', BiWeeklyGoal: goals[w - 1] });
+    plan.push({ Week: w, StartDate: ws.toISOString().slice(0, 10), Phase: 'RAMP_PJ', Runner: 'PJ', Day: 'Thu', RunType: 'Tempo', TargetDistance_km: (dist - 1).toFixed(1), TargetPace: '5:10', Description: 'Tempo run', BiWeeklyGoal: goals[w - 1] });
+    plan.push({ Week: w, StartDate: ws.toISOString().slice(0, 10), Phase: 'RAMP_PJ', Runner: 'PJ', Day: 'Sat', RunType: 'LongRun', TargetDistance_km: longDist.toFixed(1), TargetPace: '6:00', Description: 'Long run', BiWeeklyGoal: goals[w - 1] });
+    plan.push({ Week: w, StartDate: ws.toISOString().slice(0, 10), Phase: 'RAMP_PJ', Runner: 'PJ', Day: 'Sun', RunType: 'Easy', TargetDistance_km: '5.0', TargetPace: '6:00', Description: 'Recovery run', BiWeeklyGoal: goals[w - 1] });
+  }
+
+  // Base phase (weeks 9-20) - same goals, different volumes
+  const baseGoals = ['Run 3x this week, one run 7km+', 'Run 3x this week, one run 7km+', 'Complete a 10K distance run', 'Complete a 10K distance run', 'Run 4 times in one week', 'Run 4 times in one week', 'Hit 30km+ in a week', 'Hit 30km+ in a week', 'Complete a 15K run', 'Complete a 15K run', 'Tempo under 5:30/km for 3km', 'Tempo under 5:30/km for 3km'];
+  for (let w = 9; w <= 20; w++) {
+    const ws = new Date(startDate);
+    ws.setDate(ws.getDate() + (w - 1) * 7);
+    const goal = baseGoals[w - 9];
+    const rDist = 5 + (w - 9) * 0.8;
+    const pDist = 8 + (w - 9) * 0.5;
+
+    ['Rachit', 'PJ'].forEach(runner => {
+      const d = runner === 'Rachit' ? rDist : pDist;
+      plan.push({ Week: w, StartDate: ws.toISOString().slice(0, 10), Phase: 'BASE', Runner: runner, Day: 'Tue', RunType: 'Easy', TargetDistance_km: d.toFixed(1), TargetPace: runner === 'Rachit' ? '6:30' : '5:45', Description: 'Easy run', BiWeeklyGoal: goal });
+      plan.push({ Week: w, StartDate: ws.toISOString().slice(0, 10), Phase: 'BASE', Runner: runner, Day: 'Thu', RunType: 'Tempo', TargetDistance_km: (d - 1).toFixed(1), TargetPace: runner === 'Rachit' ? '5:50' : '5:10', Description: 'Tempo run', BiWeeklyGoal: goal });
+      plan.push({ Week: w, StartDate: ws.toISOString().slice(0, 10), Phase: 'BASE', Runner: runner, Day: 'Sat', RunType: 'LongRun', TargetDistance_km: (d + 5).toFixed(1), TargetPace: '6:00', Description: 'Long run', BiWeeklyGoal: goal });
+    });
+  }
+
+  // Build phase (weeks 21-36)
+  const buildGoals = ['Complete half marathon (21.1km)', 'Complete half marathon (21.1km)', 'Run 50km in one week', 'Run 50km in one week', 'MP tempo for 8km', 'MP tempo for 8km', 'Long run 26km+', 'Long run 26km+', 'Run 55km in one week', 'Run 55km in one week', 'Complete 30km long run', 'Complete 30km long run', 'Peak: 65km week', 'Peak: 65km week', '2nd 30km+ with fueling', '2nd 30km+ with fueling'];
+  for (let w = 21; w <= 36; w++) {
+    const ws = new Date(startDate);
+    ws.setDate(ws.getDate() + (w - 1) * 7);
+    const goal = buildGoals[w - 21];
+    const longRun = 21 + (w - 21) * 0.7;
+
+    ['Rachit', 'PJ'].forEach(runner => {
+      plan.push({ Week: w, StartDate: ws.toISOString().slice(0, 10), Phase: 'BUILD', Runner: runner, Day: 'Tue', RunType: 'Easy', TargetDistance_km: '10.0', TargetPace: '5:45', Description: 'Easy run', BiWeeklyGoal: goal });
+      plan.push({ Week: w, StartDate: ws.toISOString().slice(0, 10), Phase: 'BUILD', Runner: runner, Day: 'Thu', RunType: 'Tempo', TargetDistance_km: '8.0', TargetPace: '5:10', Description: 'Tempo run', BiWeeklyGoal: goal });
+      plan.push({ Week: w, StartDate: ws.toISOString().slice(0, 10), Phase: 'BUILD', Runner: runner, Day: 'Sat', RunType: 'LongRun', TargetDistance_km: longRun.toFixed(1), TargetPace: '6:00', Description: 'Long run', BiWeeklyGoal: goal });
+    });
+  }
+
+  // Generate some demo run logs (simulate past weeks)
+  const now = new Date();
+  const currentWeek = Math.max(1, Math.floor((now - CONFIG.PLAN_START) / (7 * 86400000)) + 1);
+  const weeksToLog = Math.min(currentWeek - 1, 4);
+
+  for (let w = Math.max(1, currentWeek - weeksToLog); w < currentWeek; w++) {
+    ['Rachit', 'PJ'].forEach(runner => {
+      const weekPlan = plan.filter(p => Number(p.Week) === w && p.Runner === runner);
+      weekPlan.forEach(p => {
+        if (Math.random() > 0.2) { // 80% completion rate
+          const ws = new Date(CONFIG.PLAN_START);
+          ws.setDate(ws.getDate() + (w - 1) * 7);
+          const days = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
+          const runDate = new Date(ws);
+          runDate.setDate(runDate.getDate() + (days[p.Day] || 0));
+          const dist = (Number(p.TargetDistance_km) || 5) * (0.9 + Math.random() * 0.2);
+          const dur = dist * (5 + Math.random() * 1.5);
+
+          log.push({
+            ID: 'demo_' + w + '_' + runner + '_' + p.Day,
+            Runner: runner,
+            Date: runDate.toISOString().slice(0, 10),
+            Week: w,
+            PlannedRunType: p.RunType,
+            ActualDistance_km: Math.round(dist * 10) / 10,
+            ActualDuration_min: Math.round(dur),
+            AvgPace: formatSeconds((dur * 60) / dist),
+            Effort: Math.floor(4 + Math.random() * 4),
+            Notes: '',
+            Completed: true,
+            Timestamp: runDate.toISOString()
+          });
+        }
+      });
+    });
+  }
+
+  // Demo milestones
+  if (log.some(r => r.Runner === 'PJ' && r.ActualDistance_km >= 10)) {
+    milestones.push({ Runner: 'PJ', MilestoneType: 'FIRST_10K', DateAchieved: '2026-04-12', Value: 10, AutoDetected: true });
+  }
+  if (log.some(r => r.Runner === 'Rachit' && r.ActualDistance_km >= 5)) {
+    milestones.push({ Runner: 'Rachit', MilestoneType: 'FIRST_5K', DateAchieved: '2026-05-30', Value: 5, AutoDetected: true });
+  }
+
+  return { trainingPlan: plan, runLog: log, milestones };
+}
+</script>
+</body>
+</html>
