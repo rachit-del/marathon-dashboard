@@ -536,7 +536,7 @@ html.dark .phase-banner.taper { background: rgba(79,70,229,0.2); }
         <table class="log-table" id="logTable">
           <thead>
             <tr>
-              <th>Date</th><th>Runner</th><th>Type</th><th>Distance</th><th>Duration</th><th>Pace</th><th>Effort</th><th>Notes</th>
+              <th>Date</th><th>Runner</th><th>Type</th><th>Distance</th><th>Duration</th><th>Pace</th><th>Effort</th><th>Notes</th><th></th>
             </tr>
           </thead>
           <tbody id="logBody"></tbody>
@@ -1231,6 +1231,7 @@ function renderLog() {
       <td>${r.AvgPace || calcPaceFromRun(r)}</td>
       <td>${r.Effort ? r.Effort + '/10' : '-'}</td>
       <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.Notes || ''}</td>
+      <td>${r.Runner === STATE.runner ? `<button class="btn btn-sm" style="color:var(--danger);padding:4px 8px;font-size:0.75rem" onclick="deleteRun('${r.ID}')">✕</button>` : ''}</td>
     </tr>`;
   }).join('');
 }
@@ -1642,6 +1643,29 @@ async function logRestDay() {
         notes: 'Rest day'
       });
     } catch (err) { /* silent fail, local data saved */ }
+  }
+}
+
+async function deleteRun(id) {
+  if (!confirm('Delete this run?')) return;
+
+  // Remove from local state
+  STATE.runLog = STATE.runLog.filter(r => r.ID !== id);
+  renderAll();
+  showToast('Run deleted', 'success');
+
+  // Delete from Google Sheet
+  if (CONFIG.SCRIPT_URL) {
+    try {
+      await postToAppsScript({
+        action: 'deleteRun',
+        runner: STATE.runner,
+        token: STATE.token,
+        id: id
+      });
+    } catch (err) {
+      showToast('Deleted locally. Sheet sync may need manual refresh.', 'error');
+    }
   }
 }
 

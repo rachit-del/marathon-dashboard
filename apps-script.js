@@ -59,6 +59,8 @@ function doPost(e) {
         return logRun(data, runner);
       case 'markComplete':
         return markComplete(data, runner);
+      case 'deleteRun':
+        return deleteRun(data, runner);
       default:
         return jsonResponse({ error: 'Unknown action: ' + data.action });
     }
@@ -121,6 +123,21 @@ function markComplete(data, runner) {
   }
 
   return jsonResponse({ success: true });
+}
+
+function deleteRun(data, runner) {
+  const ss = SpreadsheetApp.openById(SHEET_ID);
+  const sheet = ss.getSheetByName('RunLog');
+  const rows = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i][0] === data.id && rows[i][1] === runner) {
+      sheet.deleteRow(i + 1);
+      return jsonResponse({ success: true });
+    }
+  }
+
+  return jsonResponse({ error: 'Run not found' });
 }
 
 // ---- Milestone Detection ----
