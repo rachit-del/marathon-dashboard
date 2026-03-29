@@ -863,40 +863,21 @@ function splitCSVLine(line) {
   return result;
 }
 
-// POST to Apps Script via a form submission workaround.
-// Google Apps Script redirects POSTs (302), which causes CORS issues with fetch.
-// Instead, we submit via a hidden iframe form - this bypasses CORS entirely.
+// Write to Apps Script via GET request with URL-encoded payload.
+// Google Apps Script redirects POST (302) which drops the body.
+// GET requests survive redirects and work reliably cross-origin.
 async function postToAppsScript(data) {
-  return new Promise((resolve, reject) => {
-    const iframeId = 'post_iframe_' + Date.now();
-    const iframe = document.createElement('iframe');
-    iframe.name = iframeId;
-    iframe.style.display = 'none';
-    document.body.appendChild(iframe);
-
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = CONFIG.SCRIPT_URL;
-    form.target = iframeId;
-
-    // Send the JSON payload as a hidden field
-    const input = document.createElement('input');
-    input.type = 'hidden';
-    input.name = 'payload';
-    input.value = JSON.stringify(data);
-    form.appendChild(input);
-
-    document.body.appendChild(form);
-    form.submit();
-
-    // Clean up and re-sync after a delay
-    setTimeout(() => {
-      form.remove();
-      iframe.remove();
-      loadData();
-      resolve();
-    }, 3000);
-  });
+  const payload = encodeURIComponent(JSON.stringify(data));
+  const url = CONFIG.SCRIPT_URL + '?write=' + payload;
+  try {
+    const res = await fetch(url, { redirect: 'follow' });
+    const result = await res.json();
+    if (result.error) throw new Error(result.error);
+  } catch (err) {
+    console.warn('Write response not readable (may still have succeeded):', err);
+  }
+  // Re-sync to confirm
+  setTimeout(() => loadData(), 2000);
 }
 
 function useDemoData() {

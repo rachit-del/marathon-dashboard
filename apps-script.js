@@ -17,6 +17,13 @@ const TOKENS = {
 
 function doGet(e) {
   try {
+    // If a 'write' parameter is present, handle it as a write operation
+    if (e && e.parameter && e.parameter.write) {
+      const data = JSON.parse(e.parameter.write);
+      return handleWrite(data);
+    }
+
+    // Otherwise return all data for reading
     const ss = SpreadsheetApp.openById(SHEET_ID);
     const result = {};
     const tabs = ['Config', 'TrainingPlan', 'RunLog', 'Milestones'];
@@ -44,32 +51,36 @@ function doGet(e) {
   }
 }
 
+// Shared write handler used by both doGet (via ?write= param) and doPost
+function handleWrite(data) {
+  const runner = data.runner;
+  const token = data.token;
+
+  if (!TOKENS[runner] || TOKENS[runner] !== token) {
+    return jsonResponse({ error: 'Unauthorized' });
+  }
+
+  switch (data.action) {
+    case 'logRun':
+      return logRun(data, runner);
+    case 'markComplete':
+      return markComplete(data, runner);
+    case 'deleteRun':
+      return deleteRun(data, runner);
+    default:
+      return jsonResponse({ error: 'Unknown action: ' + data.action });
+  }
+}
+
 function doPost(e) {
   try {
-    // Handle both JSON body and form-submitted payload
     let data;
     if (e.parameter && e.parameter.payload) {
       data = JSON.parse(e.parameter.payload);
     } else {
       data = JSON.parse(e.postData.contents);
     }
-    const runner = data.runner;
-    const token = data.token;
-
-    if (!TOKENS[runner] || TOKENS[runner] !== token) {
-      return jsonResponse({ error: 'Unauthorized' });
-    }
-
-    switch (data.action) {
-      case 'logRun':
-        return logRun(data, runner);
-      case 'markComplete':
-        return markComplete(data, runner);
-      case 'deleteRun':
-        return deleteRun(data, runner);
-      default:
-        return jsonResponse({ error: 'Unknown action: ' + data.action });
-    }
+    return handleWrite(data);
   } catch (err) {
     return jsonResponse({ error: err.message });
   }
